@@ -6,7 +6,7 @@ Model `gpt-4.1-mini-2025-04-14`; seeds [1, 2, 3]; 22,470 raw records in `results
 
 ### 3.1 Manipulation check
 
-- **bbh**: `direct_zs` 0.0% (n=870) vs `cot_fs` 7.8% (n=870) — gap +nan points. holds — chain-of-thought improves accuracy as expected.
+- **bbh**: `direct_zs` 97.9% (n=870) vs `cot_fs` 98.7% (n=870) — gap +0.8 points. **FAILS (ceiling)** — no headroom for reasoning to help, so this dataset cannot support a depth-slope measurement.
 - **folio**: `direct_zs` 76.8% (n=600) vs `cot_fs` 76.3% (n=600) — gap -0.5 points. **inconclusive** — chain-of-thought neither helps nor hurts materially.
 - **prontoqa**: `direct_zs` 98.9% (n=870) vs `cot_fs` 98.9% (n=870) — gap +0.0 points. **FAILS (ceiling)** — no headroom for reasoning to help, so this dataset cannot support a depth-slope measurement.
 - **proofwriter**: `direct_zs` 67.4% (n=870) vs `cot_fs` 63.8% (n=870) — gap -3.6 points. **FAILS (inverted)** — chain-of-thought is *worse* than answering directly. Elaborating a chain introduces errors the direct answer avoids, which is itself a result about this model on this task.
@@ -17,13 +17,13 @@ Model `gpt-4.1-mini-2025-04-14`; seeds [1, 2, 3]; 22,470 raw records in `results
 
 | dataset | condition | n | accuracy [95% CI] | first-attempt | β_depth | first-error pos | post-error recovery | verifier reject | parse fail |
 |---|---|---|---|---|---|---|---|---|---|
-| bbh | `direct_zs` | 870 | 0.0% [0.0%, 0.4%] | 0.0% | -- | -- | -- | -- | -- |
-| bbh | `direct_fs` | 870 | 66.2% [63.0%, 69.3%] | 66.2% | -- | -- | -- | -- | -- |
-| bbh | `cot_zs` | 870 | 0.0% [0.0%, 0.4%] | 0.0% | -- | -- | -- | -- | -- |
-| bbh | `cot_fs` | 870 | 7.8% [6.2%, 9.8%] | 7.8% | -- | -- | -- | -- | -- |
-| bbh | `struct` | 870 | 54.0% [50.7%, 57.3%] | 54.0% | -- | -- | -- | -- | -- |
-| bbh | `verify` | 870 | 7.8% [6.2%, 9.8%] | 7.8% | -- | -- | -- | -- | -- |
-| bbh | `struct_verify` | 870 | 55.5% [52.2%, 58.8%] | 55.5% | -- | -- | -- | -- | -- |
+| bbh | `direct_zs` | 870 | 97.9% [96.8%, 98.7%] | 97.9% | -- | -- | -- | -- | -- |
+| bbh | `direct_fs` | 870 | 81.3% [78.5%, 83.7%] | 81.3% | -- | -- | -- | -- | -- |
+| bbh | `cot_zs` | 870 | 98.5% [97.5%, 99.1%] | 98.5% | -- | -- | -- | -- | -- |
+| bbh | `cot_fs` | 870 | 98.7% [97.8%, 99.3%] | 98.7% | -- | -- | -- | -- | -- |
+| bbh | `struct` | 870 | 88.2% [85.8%, 90.1%] | 88.2% | -- | -- | -- | -- | -- |
+| bbh | `verify` | 870 | 98.9% [97.9%, 99.4%] | 98.9% | -- | -- | -- | -- | -- |
+| bbh | `struct_verify` | 870 | 89.0% [86.7%, 90.9%] | 89.0% | -- | -- | -- | -- | -- |
 | folio | `direct_zs` | 600 | 76.8% [73.3%, 80.0%] | 76.8% | -- | -- | -- | -- | -- |
 | folio | `direct_fs` | 600 | 68.0% [64.2%, 71.6%] | 68.0% | -- | -- | -- | -- | -- |
 | folio | `cot_zs` | 600 | 75.3% [71.7%, 78.6%] | 75.3% | -- | -- | -- | -- | -- |
@@ -88,6 +88,7 @@ Model `gpt-4.1-mini-2025-04-14`; seeds [1, 2, 3]; 22,470 raw records in `results
 
 ### 3.6 Instrument and run health
 
+- bbh/direct_zs: direct-answer accuracy 97.9% (n=870) with no reasoning — contamination or task saturation. beta_depth is not estimable without headroom.
 - prontoqa/direct_fs: direct-answer accuracy 95.9% (n=870) with no reasoning — task saturation (this dataset is generated at run time, so leakage is ruled out by construction). beta_depth is not estimable without headroom.
 - prontoqa/direct_zs: direct-answer accuracy 98.9% (n=870) with no reasoning — task saturation (this dataset is generated at run time, so leakage is ruled out by construction). beta_depth is not estimable without headroom.
 - API calls failing after retries, excluded from all denominators: **13** of 22,470.

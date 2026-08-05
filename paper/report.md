@@ -6,14 +6,16 @@
 
 ## Abstract
 
-> **STATUS: NO RESULTS YET. The experiment has not been run — it requires an API
-> key that was not available in the build environment. Every number below is a
-> placeholder marked `[PENDING]`. Nothing in this document should be read,
-> cited, or quoted as a finding.**
+> **The intervention did not work. On the one benchmark able to measure it,
+> forcing a model to emit machine-checkable intermediate steps made error
+> propagation significantly *worse*, not better: Δβ = −0.174 (95% CI −0.276 to
+> −0.077, p = 0.0008, Holm-adjusted p = 0.0024, n = 865 paired items), where the
+> pre-registered prediction was Δβ = +0.15 in the opposite direction.**
 >
-> **When the run completes, this abstract will state the direction of the
-> primary result in its first two sentences, in bold, including the case where
-> the intervention did not work.**
+> **The pre-registered primary comparison could not be run at all.** PrOntoQA,
+> the designated primary instrument, turned out to be saturated for this model —
+> answering with no reasoning whatsoever scores 98.9% — so β_depth ≈ 0 in every
+> condition and C1 is reported as *not estimable*, never as a null.
 
 Chain-of-thought prompting improves multi-step reasoning accuracy; this is
 established and is included here only as a manipulation check. This study asks a
@@ -230,26 +232,120 @@ known effect and does not manufacture one under the null.
 
 ## 3. Results
 
-> **`[PENDING]` — the experiment has not been run.**
->
-> The apparatus is complete and validated; execution requires an `ANTHROPIC_API_KEY`.
-> The 50-item pilot projects at **$0.76** and the full run (7 conditions × 4
-> datasets × 3 seeds × 290 items = 22,470 calls + up to 6,960 revisions) projects
-> at **$24.68**, inside a hard $25 ceiling. n was reduced 300 → 290 to fit that
-> ceiling while keeping every dataset, condition, and seed; see Amendment 2.
->
-> This section will contain, with no omissions: the per-condition table for all
-> seven conditions on all four datasets; accuracy by proof depth; the three
-> pre-registered confirmatory tests with raw and Holm-adjusted p-values; the
-> power/MDE statement; contamination flags; and a run-health count of API
-> failures and unparseable responses.
+The full per-condition tables, depth breakdowns, confirmatory tests and power
+statement are generated directly from `results/raw/` by
+`scripts/write_results.py` and live in **[results_full.md](results_full.md)**.
+They are not transcribed by hand. What follows is the interpretation.
 
-### 3.1 Manipulation check `[PENDING]`
-### 3.2 Primary result: depth-conditioned slope `[PENDING]`
-### 3.3 Where chains break: first-error position `[PENDING]`
-### 3.4 Faithfulness: post-error recovery `[PENDING]`
-### 3.5 Ablations: structure vs verification `[PENDING]`
-### 3.6 Generalisation: FOLIO and BBH `[PENDING]`
+22,470 records · 24,234 API calls · 21.1M input + 4.0M output tokens · **$14.91**
+· 13 calls failed after retries (0.05%) and are excluded from every denominator.
+
+### 3.1 Only one of four benchmarks could measure the effect
+
+The manipulation check — does chain-of-thought beat answering directly? — failed
+on three of the four datasets, in two different ways:
+
+| dataset | `direct_zs` | `cot_fs` | verdict |
+|---|---:|---:|---|
+| PrOntoQA | 98.9% | 98.9% | **fails (ceiling)** — no headroom |
+| BBH `logical_deduction` | 97.9% | 98.7% | **fails (ceiling)** — no headroom |
+| FOLIO | 76.8% | 76.3% | inconclusive; and no gold chains, so no β_depth |
+| **ProofWriter** | 67.4% | 63.8% | **fails (inverted)** — CoT is 3.6 points *worse* |
+
+PrOntoQA and BBH are saturated: a model that emits no reasoning at all scores
+98–99%, so accuracy cannot decline with depth and β_depth ≈ 0 in every condition.
+**C1, the pre-registered primary comparison, is therefore not estimable** — that
+is what is reported, not a null.
+
+ProofWriter is the only dataset with both headroom and gold depth labels, so it
+carries the entire inferential weight of the study. That was pre-registered as
+C2 (§2.3), not chosen after the fact — but a design meant to rest on two
+instruments is resting on one.
+
+### 3.2 Primary result: the intervention made propagation worse
+
+**C2: Δβ = −0.174, 95% CI [−0.276, −0.077], p = 0.0008, Holm-adjusted
+p = 0.0024, n = 865 paired items.** H1 predicted **+0.15**. The measured effect is
+significant, and in the opposite direction: under `struct_verify` accuracy falls
+*faster* with proof depth than under `cot_fs`.
+
+This is a rejection of the pre-registered hypothesis, not a null. The study is
+nonetheless **underpowered for the effect it predicted** — the realised MDE on
+ProofWriter is +0.20, above the predicted +0.15 — so it could not have reliably
+detected the hypothesised benefit had one existed. Both facts are reported
+together because either alone would mislead.
+
+### 3.3 The ablation says structure helped and verification hurt
+
+The headline condition bundles two manipulations. Separating them (β_depth,
+ProofWriter):
+
+| condition | β_depth | accuracy | first attempt |
+|---|---:|---:|---:|
+| `cot_fs` (baseline) | −0.097 | 63.8% | 63.8% |
+| `struct` (structure only) | **−0.007** | **70.2%** | 70.2% |
+| `struct_verify` (structure + revision) | **−0.271** | 67.7% | **70.1%** |
+
+Structure alone produces an almost perfectly flat depth curve — 74%, 64%, 70%,
+71%, 74%, 66% across depths 0–5 — which is precisely H1's win condition. Adding
+the verifier-triggered revision loop reverses it (82% → 51% across the same
+range) and *lowers* accuracy: 70.1% on the first attempt falls to 67.7% after
+revision.
+
+A mechanism consistent with this: the verifier rejects 25% of emitted steps, and
+a rejection triggers revision on chains that were frequently already correct. The
+model then edits sound reasoning into unsound reasoning. Deeper problems have
+more steps, so more opportunities for a spurious rejection, so more damaging
+revisions — which is exactly how a revision loop would manufacture a depth
+gradient.
+
+**This decomposition is exploratory.** `Δβ(struct − cot_fs) = +0.090` is not one
+of the three pre-registered comparisons and carries no confirmatory weight. It is
+the obvious pre-registered follow-up, not a finding.
+
+Consistent with the same picture, revision *helped* the unstructured condition
+(`verify`: 67.0% → 70.7%) while hurting the structured one. Revision appears to
+be useful exactly where the model had no reliable chain to damage.
+
+### 3.4 Faithfulness moved as predicted, even as robustness got worse
+
+H4 predicted post-error recovery would **fall** under the intervention, because
+forcing checkable steps makes the chain load-bearing rather than decorative.
+Comparing the two conditions where recovery is measured on the same footing:
+
+- `struct` 78.6% → `struct_verify` **60.9%** (−17.7 points)
+
+So the chain did become more causally connected to the answer, and errors
+propagated harder as a result. **The intervention improved faithfulness while
+degrading robustness** — the tension pre-registered in §2.1 as a possible
+outcome, realised.
+
+> **A measurement artefact that must not be read as a result.** The
+> free-form conditions (`direct_*`, `cot_*`, `verify`) show a 100% verifier
+> rejection rate and a mean first-error position of exactly 1.00. That is not a
+> reasoning finding: prose does not cite premise ids, so every recovered step
+> fails verification for want of a citation, at step 1. Recovery, rejection and
+> first-error position are only comparable **among structured conditions**. Any
+> comparison of those three columns between a structured and an unstructured
+> condition is meaningless, and the `struct` vs `struct_verify` contrast above is
+> the only one drawn.
+
+### 3.5 The structured format is not free
+
+On the two saturated datasets the structured format actively costs accuracy:
+PrOntoQA `struct` 94.9% vs `cot_zs` 99.5%; BBH `struct` 88.2% vs `cot_fs` 98.7%.
+BBH `logical_deduction` is an ordering puzzle, not a premise-citation task, so
+being forced into typed triples is a poor fit. Structure helps where the task is
+genuinely a derivation over citable premises and hurts where it is not.
+
+### 3.6 H5 confirmed: unstructured output is not verifiable
+
+`verify` applies the verifier to a best-effort parse of prose. On PrOntoQA the
+parse-failure rate is **99.9% (868/869)** — far above the predicted >25%. Free-form
+chain-of-thought essentially cannot be checked against the premises that are
+supposed to license it. Whatever else this study shows, it shows that the
+verifiability of a chain has to be designed in; it cannot be recovered after the
+fact.
 
 ---
 
@@ -341,6 +437,23 @@ A no-op-critique control would isolate this and is not included.
 
 **Bootstrap resolution.** The bootstrap cannot resolve p below 1/B; reported
 p-values are floored at 1/10,000 rather than shown as zero.
+
+**A scoring bug was found and fixed after the run, from raw records.** BBH's
+gold targets are written `(A)` while the model answers `A`; compared as raw
+strings this scored every zero-shot BBH item wrong and produced apparent
+accuracies of 0.0% for `direct_zs` and `cot_zs`. It was caught because 0.0%
+alongside 66.2% for `direct_fs` is not a plausible model behaviour. Because raw
+response text is persisted, the correction re-derived every affected number with
+no new API calls. That this was recoverable is a property of the design; that it
+existed at all is a reminder that a scoring layer is as capable of producing a
+confident wrong answer as a model is.
+
+**One instrument carries the study.** The design intended PrOntoQA and
+ProofWriter to test the same hypothesis independently. Saturation removed
+PrOntoQA, and FOLIO and BBH cannot support β_depth at all. A single benchmark,
+one model, one snapshot now carries the entire confirmatory claim. The negative
+result should be read as *this intervention, on this benchmark, with this
+model* — not as a general claim about structured reasoning.
 
 ---
 

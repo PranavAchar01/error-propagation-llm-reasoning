@@ -10,25 +10,38 @@ under any research lab.*
 
 ---
 
-## Status
+## Headline result
 
-**The apparatus is complete and validated. The experiment has not been run.**
+**The intervention did not work.** Forcing machine-checkable intermediate steps
+made error propagation significantly **worse**, not better:
 
-Execution needs an `OPENAI_API_KEY`, which was not available in the build
-environment. Everything up to the first API call is done, tested, and
-reproducible. `paper/report.md` marks every results section `[PENDING]`; there
-are no placeholder numbers anywhere that could be mistaken for findings.
+> **Δβ = −0.174** (95% CI −0.276 to −0.077), p = 0.0008, Holm-adjusted
+> p = 0.0024, **n = 865 paired items**, `gpt-4.1-mini-2025-04-14`.
+> The pre-registered prediction was **+0.15, in the opposite direction.**
 
-| stage | state |
-|---|---|
-| Pre-registration (`HYPOTHESIS.md`) | done — committed before any model call |
-| Benchmarks downloaded, generated, checksummed | done |
-| Non-model verifier + calibration | done — **100% on 4,832 gold proofs** |
-| Harness, 7 conditions, cost control | done — dry-runs clean |
-| Metrics + statistics pipeline | done — validated on a planted effect |
-| 50-item pilot (~$0.76) | **blocked: needs API key** |
-| Full run (~$24.68, fits the $25 ceiling) | **blocked: needs API key** |
-| Report results sections | blocked on the above |
+**The pre-registered primary comparison could not be run.** PrOntoQA — the
+designated primary instrument — is saturated for this model: answering with no
+reasoning at all scores **98.9%**, so β_depth ≈ 0 in every condition. C1 is
+reported as *not estimable*, never as a null. BIG-Bench Hard is saturated too
+(97.9%). ProofWriter was the only benchmark left with both headroom and gold
+depth labels, so one instrument carries a design meant to rest on two.
+
+**The ablation is the interesting part, and it is exploratory.** Structure alone
+gives an almost perfectly flat depth curve (β = **−0.007**, accuracy 74/64/70/71/74/66%
+across depths 0–5). Adding the verifier-revision loop reverses it (β = **−0.271**)
+and *lowers* accuracy (70.1% first attempt → 67.7% after revision). The
+pre-registered condition bundled both, and the sum is net negative.
+`Δβ(struct − cot_fs) = +0.090` is **not** one of the three pre-registered tests
+and carries no confirmatory weight.
+
+Post-error recovery fell from 78.6% (`struct`) to 60.9% (`struct_verify`),
+which is the direction H4 predicted: the chain became more load-bearing, so
+errors propagated harder. **Faithfulness improved while robustness degraded.**
+
+Run: 22,470 records · 24,234 calls · **$14.91** · 13 failed calls (0.05%).
+Full tables: [paper/results_full.md](paper/results_full.md) · discussion:
+[paper/report.md](paper/report.md) · pre-registration and its three amendments:
+[HYPOTHESIS.md](HYPOTHESIS.md).
 
 ## The question, precisely
 
