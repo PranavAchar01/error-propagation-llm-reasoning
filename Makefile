@@ -1,18 +1,20 @@
-.PHONY: help setup data test lint pilot full reproduce clean check
+.PHONY: help setup auth-check data test lint pilot full reproduce clean check
 
 PY      := .venv/bin/python
 PHASE   ?= pilot
+MODEL   ?= gpt-4.1-mini-2025-04-14
 SEEDS   ?= 1 2 3
-N       ?= 300
+N       ?= 290
 MAXCOST ?= 25
 
 help:
 	@echo "make setup      install pinned deps into .venv (Python 3.12)"
+	@echo "make auth-check verify credentials + confirm the model exists (1 tiny call)"
 	@echo "make data       download + generate + checksum every benchmark"
 	@echo "make test       run the full test suite (no network, no API key)"
 	@echo "make lint       ruff check"
-	@echo "make pilot      50-item pilot per condition   (needs ANTHROPIC_API_KEY)"
-	@echo "make full       full run: N=$(N) SEEDS='$(SEEDS)' (needs ANTHROPIC_API_KEY)"
+	@echo "make pilot      50-item pilot per condition   (needs OPENAI_API_KEY)"
+	@echo "make full       full run: N=$(N) SEEDS='$(SEEDS)' (needs OPENAI_API_KEY)"
 	@echo "make reproduce  regenerate every table from results/raw/ (NO network)"
 	@echo ""
 	@echo "Dry-run any phase without spending anything:"
@@ -21,6 +23,9 @@ help:
 setup:
 	uv venv --python 3.12
 	uv sync --extra dev
+
+auth-check:
+	$(PY) scripts/auth_check.py --model $(MODEL)
 
 data:
 	$(PY) scripts/prepare_data.py
@@ -35,11 +40,11 @@ check: lint test
 
 # --- experiments (cost money; each prints a projection and honours a ceiling)
 pilot:
-	$(PY) scripts/run.py --phase pilot --n 50 --seeds 1 \
+	$(PY) scripts/run.py --phase pilot --n 50 --seeds 1 --model $(MODEL) \
 		--datasets prontoqa proofwriter --max-cost $(MAXCOST)
 
 full:
-	$(PY) scripts/run.py --phase full --n $(N) --seeds $(SEEDS) \
+	$(PY) scripts/run.py --phase full --n $(N) --seeds $(SEEDS) --model $(MODEL) \
 		--datasets prontoqa proofwriter folio bbh --max-cost $(MAXCOST)
 
 # --- analysis: offline, deterministic, regenerates every table and figure

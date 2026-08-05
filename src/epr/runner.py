@@ -168,6 +168,10 @@ def completed_uids(path: Path) -> set[str]:
     return done
 
 
+class BudgetExceeded(RuntimeError):
+    """Actual spend crossed the ceiling mid-run. Completed work is already on disk."""
+
+
 def run_condition(
     client: Client,
     items: list[Item],
@@ -176,13 +180,26 @@ def run_condition(
     seed: int,
     phase: str,
     progress=None,
+    stop_check=None,
 ) -> Path:
+    """Run one condition, appending each record as soon as it exists.
+
+    `stop_check` is consulted before every item. A pre-run projection is an
+    estimate; only real usage can enforce a real ceiling, and because records
+    are flushed per item, stopping mid-run loses nothing already paid for —
+    `--resume` picks up exactly where it left off.
+    """
     path = output_path(items[0].dataset, condition, seed, phase)
     done = completed_uids(path)
     with path.open("a") as fh:
         for item in items:
             if item.uid in done:
                 continue
+            if stop_check is not None and stop_check():
+                raise BudgetExceeded(
+                    f"stopped in {items[0].dataset}/{condition} seed={seed}; "
+                    f"spend so far ${client.usage.cost(client.model):.2f}"
+                )
             rec = run_item(client, item, condition, exemplars, seed)
             fh.write(rec.to_json() + "\n")
             fh.flush()

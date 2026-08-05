@@ -14,7 +14,7 @@ under any research lab.*
 
 **The apparatus is complete and validated. The experiment has not been run.**
 
-Execution needs an `ANTHROPIC_API_KEY`, which was not available in the build
+Execution needs an `OPENAI_API_KEY`, which was not available in the build
 environment. Everything up to the first API call is done, tested, and
 reproducible. `paper/report.md` marks every results section `[PENDING]`; there
 are no placeholder numbers anywhere that could be mistaken for findings.
@@ -26,8 +26,8 @@ are no placeholder numbers anywhere that could be mistaken for findings.
 | Non-model verifier + calibration | done — **100% on 4,832 gold proofs** |
 | Harness, 7 conditions, cost control | done — dry-runs clean |
 | Metrics + statistics pipeline | done — validated on a planted effect |
-| 50-item pilot (~$2.12) | **blocked: needs API key** |
-| Full run (~$65.12) | **blocked: needs API key + budget approval** |
+| 50-item pilot (~$0.76) | **blocked: needs API key** |
+| Full run (~$24.68, fits the $25 ceiling) | **blocked: needs API key** |
 | Report results sections | blocked on the above |
 
 ## The question, precisely
@@ -109,22 +109,30 @@ itself.
 ```bash
 make setup      # pinned deps, Python 3.12
 make data       # download + generate + checksum every benchmark
-make test       # 94 tests, no network, no API key
+make test       # 112 tests, no network, no API key
 make check      # lint + test
 
-make pilot      # 50 items/condition, projects ~$2.12   (needs ANTHROPIC_API_KEY)
-make full       # full grid, projects ~$65.12           (needs ANTHROPIC_API_KEY)
+make auth-check # verify the key + confirm the model exists (1 tiny call)
+make pilot      # 50 items/condition, projects ~$0.76   (needs OPENAI_API_KEY)
+make full       # full grid, projects ~$24.68          (needs OPENAI_API_KEY)
 make reproduce  # regenerate every table from results/raw/, NO network
 ```
 
 Any phase can be costed without spending anything:
 
 ```bash
-.venv/bin/python scripts/run.py --phase full --n 300 --seeds 1 2 3 --dry-run
+.venv/bin/python scripts/run.py --phase full --n 290 --seeds 1 2 3 --dry-run
 ```
 
-Runs refuse to start above a `--max-cost` ceiling (default $25) unless
-explicitly overridden, and resume without re-paying for completed items.
+Runs refuse to *start* above a `--max-cost` ceiling (default $25), and are also
+checked against **actual** spend before every item — a projection is an estimate,
+so only real usage can enforce a real ceiling. Records flush per item, so a
+budget stop loses nothing already paid for and a re-run resumes from it.
+
+Set credentials in `.env` (see `.env.example`); it is loaded automatically.
+The subject model is **`gpt-4.1-mini-2025-04-14`** — see Amendments 1 and 2 in
+[HYPOTHESIS.md](HYPOTHESIS.md) for why it changed and why that does not touch the
+pre-registered metric.
 
 ## Honesty commitments
 
@@ -152,11 +160,11 @@ src/epr/
   parsers.py      benchmark grammars + model-output parsing
   datasets.py     uniform Item loader; every dropped item counted
   prompts.py      the seven conditions
-  model.py        pinned client, retries, cost accounting
+  model.py        provider-agnostic client (OpenAI/Anthropic), retries, cost
   runner.py       experiment loop, resumable
   metrics.py      pre-registered metrics, denominators tracked
   stats.py        bootstrap, McNemar, Holm-Bonferroni, power
-scripts/          prepare_data · run · analyze
+scripts/          prepare_data · auth_check · run · analyze
 paper/report.md   method, threats to validity, limitations
 data/README.md    provenance, licences, known quirks
 ```

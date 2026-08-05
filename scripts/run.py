@@ -14,15 +14,21 @@ import argparse
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
-
 from tqdm import tqdm
 
 from epr.datasets import Item, load_bbh, load_folio, load_prontoqa, load_proofwriter
-from epr.model import DEFAULT_MODEL, Client, MissingAPIKey, estimate_cost
+from epr.model import (
+    DEFAULT_MODEL,
+    PRICING,
+    Client,
+    MissingCredentials,
+    estimate_cost,
+    provider_for,
+)
 from epr.prompts import CONDITIONS, FEWSHOT, VERIFIED, build_prompt
-from epr.runner import output_path, run_condition
+from epr.runner import BudgetExceeded, output_path, run_condition
+
+ROOT = Path(__file__).resolve().parents[1]
 
 N_EXEMPLARS = 4
 DATASETS = ("prontoqa", "proofwriter", "folio", "bbh")
@@ -108,7 +114,7 @@ def main() -> int:
     plan: list[tuple[str, str, int, list[Item], list[Item]]] = []
     prompts: list[tuple[str, str]] = []
     expected_out = 0
-    print(f"\n=== phase={args.phase} model={args.model} ===")
+    print(f"\n=== phase={args.phase} model={args.model} provider={provider_for(args.model)} ===")
     for ds in args.datasets:
         for seed in args.seeds:
             items, exemplars, summary = load_dataset(ds, seed, args.n)
@@ -126,8 +132,6 @@ def main() -> int:
     tin, _, _ = estimate_cost(prompts, args.model, 0)
     # revision calls resend the premise block plus the prior attempt
     tin_total = int(tin * 1.6) if any(c in VERIFIED for c in args.conditions) else tin
-    from epr.model import PRICING
-
     cin, cout = PRICING.get(args.model, (0.0, 0.0))
     projected = tin_total / 1e6 * cin + expected_out / 1e6 * cout
 
@@ -151,17 +155,40 @@ def main() -> int:
 
     try:
         client = Client(model=args.model)
-    except MissingAPIKey as e:
+    except MissingCredentials as e:
         print(f"\n  {e}")
         return 3
 
+    # A projection is an estimate; only real usage enforces a real ceiling.
+    # Checked before every item, so a hard budget is actually hard.
+    def over_budget() -> bool:
+        return client.usage.cost(args.model) >= args.max_cost
+
     total = len(prompts)
+    stopped = False
     with tqdm(total=total, desc=args.phase, unit="item") as bar:
         for ds, cond, seed, items, exemplars in plan:
             ex = exemplars if cond in FEWSHOT else []
-            run_condition(client, items, cond, ex, seed, args.phase, progress=bar)
+            try:
+                run_condition(
+                    client,
+                    items,
+                    cond,
+                    ex,
+                    seed,
+                    args.phase,
+                    progress=bar,
+                    stop_check=over_budget,
+                )
+            except BudgetExceeded as e:
+                print(f"\n\n  BUDGET CEILING HIT: {e}")
+                print("  Completed records are on disk; re-run to resume where this stopped.")
+                stopped = True
+                break
 
     print(f"\n  actual usage: {client.usage.summary(args.model)}")
+    if stopped:
+        print("  INCOMPLETE RUN — analysis will report reduced n for the affected conditions.")
     print(
         f"  raw output  : {output_path(args.datasets[0], args.conditions[0], args.seeds[0], args.phase).parent.parent}"
     )

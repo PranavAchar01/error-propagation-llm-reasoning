@@ -15,9 +15,6 @@ import os
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
-
 from epr.metrics import (
     contamination_flag,
     load_records,
@@ -31,6 +28,8 @@ from epr.stats import (
     mde_delta_beta,
     paired_bootstrap_delta_beta,
 )
+
+ROOT = Path(__file__).resolve().parents[1]
 
 # Honour the same override the metrics loader uses, so a test (or a scratch
 # analysis) can never write into the real results/tables/. Synthetic output
@@ -68,7 +67,7 @@ def main() -> int:
         print(
             f"No raw records for phase '{args.phase}'.\n"
             f"Expected files under results/raw/{args.phase}/<dataset>/*.jsonl\n"
-            "Run `make pilot` first (needs ANTHROPIC_API_KEY)."
+            "Run `make pilot` first (needs a provider credential)."
         )
         return 1
 

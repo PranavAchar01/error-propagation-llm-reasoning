@@ -195,8 +195,9 @@ forbids. This is a real limit on the generalisation claim and is treated as one.
 
 ### 2.5 Model, statistics, reproducibility
 
-Subject model: **`claude-haiku-4-5-20251001`** — a dated snapshot, so the run is
-reproducible, and mid-tier *on purpose*: a frontier model sits near ceiling on
+Subject model: **`gpt-4.1-mini-2025-04-14`** (changed from `claude-haiku-4-5-20251001`;
+see `HYPOTHESIS.md` Amendment 1, recorded before any model call) — a dated
+snapshot, so the run is reproducible, and mid-tier *on purpose*: a frontier model sits near ceiling on
 PrOntoQA, and a ceiling gives β_depth ≈ 0 in every condition, i.e. no measurable
 propagation. Headroom is a methodological requirement here, not a cost
 compromise. `temperature=0.0`; seed varies item sampling and exemplar selection.
@@ -232,9 +233,10 @@ known effect and does not manufacture one under the null.
 > **`[PENDING]` — the experiment has not been run.**
 >
 > The apparatus is complete and validated; execution requires an `ANTHROPIC_API_KEY`.
-> The 50-item pilot projects at **$2.12** and the full run (7 conditions × 4
-> datasets × 3 seeds × 300 items ≈ 23,163 calls + up to 7,200 revisions) projects
-> at **$65.12** on the pinned model.
+> The 50-item pilot projects at **$0.76** and the full run (7 conditions × 4
+> datasets × 3 seeds × 290 items = 22,470 calls + up to 6,960 revisions) projects
+> at **$24.68**, inside a hard $25 ceiling. n was reduced 300 → 290 to fit that
+> ceiling while keeping every dataset, condition, and seed; see Amendment 2.
 >
 > This section will contain, with no omissions: the per-condition table for all
 > seven conditions on all four datasets; accuracy by proof depth; the three
@@ -295,8 +297,10 @@ would appear as Δβ > 0 without any change in propagation. Disentangling this
 would need premise-set size varied orthogonally to depth, which this design does
 not do.
 
-**Single model family.** One model, one provider, one snapshot. Nothing here
-licenses a claim about language models in general. The mid-tier choice is
+**Single model family.** One model, one provider (OpenAI), one snapshot. Nothing
+here licenses a claim about language models in general. The harness is
+provider-agnostic and a second family can be run to address this directly; that
+is the single highest-value extension. The mid-tier choice is
 methodologically motivated (headroom), but it also means the result may not
 transfer to frontier models, which may fail differently — or not enough to
 measure.
@@ -344,8 +348,9 @@ Beyond the threats above:
 
 ```bash
 make setup && make data && make test
-make pilot          # 50 items/condition, ~$2      (needs ANTHROPIC_API_KEY)
-make full           # full grid, ~$65              (needs ANTHROPIC_API_KEY)
+make auth-check     # verify credentials, confirm the model (1 tiny call)
+make pilot          # 50 items/condition, ~$0.76  (needs OPENAI_API_KEY)
+make full           # full grid, ~$24.68          (needs OPENAI_API_KEY)
 make reproduce      # regenerate every table, NO network
 ```
 

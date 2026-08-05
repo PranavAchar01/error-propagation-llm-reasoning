@@ -7,6 +7,59 @@ this file's first commit precedes every commit that touches `results/`.
 
 ---
 
+## Amendments
+
+Recorded openly rather than edited in place. Original text below is left
+untouched so the diff is auditable. **No amendment may touch the primary metric
+(§2), the confirmatory comparisons (§4), or the predictions (§5)** — those are
+what pre-registration exists to protect, and they are unchanged.
+
+### Amendment 1 — 2026-08-05, before any model call
+
+**Subject model changed** from `claude-haiku-4-5-20251001` (§8) to
+**`gpt-4.1-mini-2025-04-14`**.
+
+*Reason:* resource availability. No Anthropic API credential was obtainable for
+this project; an OpenAI credential was. The only alternative Anthropic route was
+a Claude Code subscription OAuth token, which was rejected on two grounds: it is
+a subscription credential not provisioned for batch inference, and routing the
+study through Claude Code would inject an agent system prompt and tools and would
+not honour `temperature=0.0`, breaking the decoding config pinned in §8.
+
+*Why this does not compromise the pre-registration:* the model was always a
+resource choice, not a hypothesis. §8's stated selection criteria are unchanged
+and the replacement satisfies both — it is a **dated snapshot** (reproducible,
+unlike a moving alias) and it is **mid-tier**, preserving the headroom that a
+depth-slope measurement requires. The study tests a prompting intervention, not a
+vendor.
+
+*Consequence for claims:* the "single model family" threat in the report now
+reads **OpenAI**, not Anthropic. Nothing here licenses a claim about language
+models in general, and the harness is now provider-agnostic specifically so a
+second family can be added later to address that threat directly.
+
+**Still true and still binding:** `temperature=0.0`; the model id is recorded in
+every result record; seeds vary item sampling and exemplar selection only.
+
+### Amendment 2 — 2026-08-05, before any model call
+
+**Target n reduced from 300 to 290** items per condition per dataset per seed
+(§7), to fit a hard $25 budget ceiling. Projected spend at n=290 is $24.68.
+
+*Reason:* budget, stated in advance. The alternative was dropping FOLIO and BBH
+entirely; a 3.3% reduction in n was preferred because it preserves **all four
+datasets, all seven conditions, and all three seeds**, and therefore both
+confirmatory slope tests (C1, C2) and the accuracy test (C3) exactly as
+pre-registered. Dropping datasets would have removed the generalisation and OOD
+checks outright.
+
+*Consequence for claims:* a marginal power loss. The realised MDE is computed
+from the realised n regardless (§7), so this cannot silently turn an
+underpowered study into an apparently null one — if 290 is too few, the report
+says so in the abstract.
+
+---
+
 ## 1. Research question
 
 Does forcing a language model to commit to explicit, machine-checkable intermediate
@@ -164,7 +217,7 @@ Known data quirks, handled explicitly in the loader:
 - Paired tests on identical items: bootstrap for β, exact McNemar for accuracy.
 - **Holm–Bonferroni** across C1–C3.
 - **Target n:** 300 items per condition per dataset per seed (50 per depth bin × 6
-  bins), 3 seeds.
+  bins), 3 seeds. *(Amended to 290 by Amendment 2 — budget ceiling.)*
 - **Power:** the minimum detectable effect for C1 is computed by simulation at the
   realised n and realised per-depth accuracies, and reported in the paper. A
   non-significant C1 is reported as **"no detected effect, MDE = X"**, never as
@@ -174,6 +227,10 @@ Known data quirks, handled explicitly in the loader:
 ## 8. Model under test
 
 **`claude-haiku-4-5-20251001`** — recorded in every result file.
+
+> **SUPERSEDED by Amendment 1** (top of file): the subject model is now
+> `gpt-4.1-mini-2025-04-14`. The two selection criteria stated below are
+> unchanged and the replacement satisfies both. Original text kept verbatim.
 
 Chosen for two reasons, both pre-committed:
 1. It is a **dated snapshot**, so the run is reproducible. Undated aliases move.
