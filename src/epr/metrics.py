@@ -209,12 +209,32 @@ def paired_vectors(
 
 
 def contamination_flag(summary: ConditionSummary, threshold: float = 0.95) -> str | None:
-    """Flag a baseline so strong it suggests memorisation rather than reasoning."""
+    """Flag a direct-answer baseline high enough to invalidate the instrument.
+
+    Two very different causes produce the same number, and the flag names both
+    rather than asserting the alarming one:
+
+      * contamination — the items are in pretraining, so the model recalls
+        rather than derives;
+      * saturation — the task is simply easy for this model.
+
+    Which applies is decidable from the dataset, not the accuracy. ProntoQA's
+    fictional ontology is generated at run time from a seed and cannot be in any
+    corpus, so a high baseline there is saturation by construction. Either way
+    the consequence for this study is the same: no headroom means no depth
+    gradient, and beta_depth is not estimable.
+    """
     acc = summary.accuracy
     if acc is not None and acc >= threshold and summary.condition.startswith("direct"):
+        cause = (
+            "task saturation (this dataset is generated at run time, so leakage "
+            "is ruled out by construction)"
+            if summary.dataset == "prontoqa"
+            else "contamination or task saturation"
+        )
         return (
             f"{summary.dataset}/{summary.condition}: direct-answer accuracy "
-            f"{acc:.1%} (n={summary.n}) — implausibly high without reasoning; "
-            "possible contamination or leakage."
+            f"{acc:.1%} (n={summary.n}) with no reasoning — {cause}. "
+            "beta_depth is not estimable without headroom."
         )
     return None

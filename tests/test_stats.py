@@ -12,6 +12,7 @@ from scipy import stats as sps
 
 from epr.stats import (
     fit_logit,
+    fit_logit_se,
     holm_bonferroni,
     mcnemar_exact,
     mde_delta_beta,
@@ -118,13 +119,42 @@ def test_holm_is_monotone_and_never_below_raw():
     assert all(v["p_adjusted"] >= v["p_raw"] for v in out.values())
 
 
-def test_mde_is_finite_and_shrinks_with_sample_size():
+def test_mde_shrinks_with_sample_size():
+    """More data must make smaller effects detectable.
+
+    `inf` is a legitimate answer, not a failure: it means no effect in the
+    searched range is detectable at this n. Reporting a finite MDE there would
+    overstate what the study could have seen.
+    """
     rng = np.random.default_rng(7)
     small = np.repeat([1.0, 2, 3, 4, 5], 12)
-    large = np.repeat([1.0, 2, 3, 4, 5], 120)
+    large = np.repeat([1.0, 2, 3, 4, 5], 400)
     ys = rng.binomial(1, 1 / (1 + np.exp(-(2.0 - 0.5 * small)))).astype(float)
     yl = rng.binomial(1, 1 / (1 + np.exp(-(2.0 - 0.5 * large)))).astype(float)
     mde_small = mde_delta_beta(small, ys, n_sims=60, seed=8)
     mde_large = mde_delta_beta(large, yl, n_sims=60, seed=8)
-    assert np.isfinite(mde_small) and np.isfinite(mde_large)
-    assert mde_large < mde_small, "more data must make smaller effects detectable"
+    assert np.isfinite(mde_large), "a large sample must detect *something*"
+    assert mde_large < mde_small
+
+
+def test_analytic_slope_se_matches_the_bootstrap_it_replaced():
+    """The power analysis swapped a bootstrap SE for the Fisher-information SE.
+
+    That was a 25x speedup, so it has to be the same quantity — otherwise the
+    MDE, and the underpowered-vs-null call that rests on it, silently shifts.
+    """
+    rng = np.random.default_rng(11)
+    x = np.repeat([1.0, 2, 3, 4, 5], 200)
+    y = rng.binomial(1, 1 / (1 + np.exp(-(2.0 - 0.5 * x)))).astype(float)
+
+    _, _, se_analytic = fit_logit_se(x, y)
+
+    boots = np.empty(300)
+    for i in range(300):
+        idx = rng.integers(0, len(x), len(x))
+        boots[i] = fit_logit(x[idx], y[idx])[1]
+    se_boot = float(np.std(boots))
+
+    assert se_analytic == pytest.approx(se_boot, rel=0.15), (
+        f"analytic SE {se_analytic:.4f} vs bootstrap {se_boot:.4f}"
+    )

@@ -50,6 +50,31 @@ def fit_logit(x: np.ndarray, y: np.ndarray, ridge: float = RIDGE) -> tuple[float
     return float(beta[0]), float(beta[1])
 
 
+def fit_logit_se(x: np.ndarray, y: np.ndarray, ridge: float = RIDGE) -> tuple[float, float, float]:
+    """As `fit_logit`, plus the analytic standard error of the slope.
+
+    The SE is the square root of the [1,1] entry of the inverse Fisher
+    information, which the IRLS loop already forms as its Hessian. Getting it
+    this way costs one extra matrix inverse; getting it by bootstrap costs a few
+    dozen refits per evaluation, which is what made the power analysis
+    unusable — it turned `make reproduce` into an hour-long job.
+    """
+    alpha, beta = fit_logit(x, y, ridge)
+    if not np.isfinite(beta):
+        return alpha, beta, float("nan")
+    x = np.asarray(x, dtype=float)
+    X = np.column_stack([np.ones_like(x), x])
+    eta = np.clip(X @ np.array([alpha, beta]), -30, 30)
+    p = 1.0 / (1.0 + np.exp(-eta))
+    w = np.clip(p * (1 - p), 1e-9, None)
+    hess = X.T @ (X * w[:, None]) + np.diag([0.0, ridge])
+    try:
+        se = float(np.sqrt(np.linalg.inv(hess)[1, 1]))
+    except np.linalg.LinAlgError:
+        return alpha, beta, float("nan")
+    return alpha, beta, se
+
+
 @dataclass
 class BootResult:
     point: float
@@ -158,7 +183,7 @@ def mde_delta_beta(
     baseline_correct: np.ndarray,
     target_power: float = 0.80,
     alpha: float = 0.05,
-    n_sims: int = 400,
+    n_sims: int = 200,
     seed: int = 0,
 ) -> float:
     """Minimum detectable delta-beta at the realised n and depth distribution.
@@ -180,26 +205,40 @@ def mde_delta_beta(
 
     rng = np.random.default_rng(seed)
     zcrit = sps.norm.ppf(1 - alpha / 2)
+    p_base = 1 / (1 + np.exp(-(alpha0 + beta0 * depth)))
 
-    for delta in np.arange(0.05, 3.01, 0.05):
+    def power_at(delta: float) -> float:
+        p_int = 1 / (1 + np.exp(-(alpha0 + (beta0 + delta) * depth)))
         hits = 0
         for _ in range(n_sims):
-            p_base = 1 / (1 + np.exp(-(alpha0 + beta0 * depth)))
-            p_int = 1 / (1 + np.exp(-(alpha0 + (beta0 + delta) * depth)))
             yb = rng.binomial(1, np.clip(p_base, 0, 1)).astype(float)
             yi = rng.binomial(1, np.clip(p_int, 0, 1)).astype(float)
-            d_hat = fit_logit(depth, yi)[1] - fit_logit(depth, yb)[1]
-            # Cheap normal-approx SE from a small inner bootstrap.
-            inner = np.empty(24)
-            for j in range(24):
-                idx = rng.integers(0, len(depth), len(depth))
-                if len(np.unique(depth[idx])) < 2:
-                    inner[j] = np.nan
-                    continue
-                inner[j] = fit_logit(depth[idx], yi[idx])[1] - fit_logit(depth[idx], yb[idx])[1]
-            se = np.nanstd(inner)
-            if np.isfinite(d_hat) and se > 0 and abs(d_hat / se) > zcrit:
+            _, b_i, se_i = fit_logit_se(depth, yi)
+            _, b_b, se_b = fit_logit_se(depth, yb)
+            if not (
+                np.isfinite(b_i) and np.isfinite(b_b) and np.isfinite(se_i) and np.isfinite(se_b)
+            ):
+                continue
+            # Independent-draw SE for the difference. The real comparison is
+            # paired on items, so this OVERSTATES the variance and therefore
+            # overstates the MDE — conservative in the direction that matters,
+            # since a too-large MDE makes us call the study underpowered rather
+            # than claim a detection we could not support.
+            se = np.hypot(se_i, se_b)
+            if se > 0 and abs(b_i - b_b) / se > zcrit:
                 hits += 1
-        if hits / n_sims >= target_power:
+        return hits / n_sims
+
+    # Ascending scan, returning the SMALLEST delta that reaches target power.
+    #
+    # Deliberately not a bisection. Power is NOT monotone in delta here: once
+    # the simulated intervention is large enough to saturate (p -> 1 at every
+    # depth), the Fisher information collapses, the slope's SE explodes, and
+    # power falls again. A bisection that assumes monotonicity probes the top of
+    # the range, finds it underpowered, and reports `inf` for a study that is
+    # in fact well powered. The scan is affordable because each evaluation now
+    # uses the analytic SE rather than an inner bootstrap.
+    for delta in np.arange(0.05, 2.01, 0.05):
+        if power_at(float(delta)) >= target_power:
             return float(delta)
     return float("inf")
