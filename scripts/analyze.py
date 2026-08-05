@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import os
 import sys
 from pathlib import Path
 
@@ -31,7 +32,10 @@ from epr.stats import (
     paired_bootstrap_delta_beta,
 )
 
-TABLES = ROOT / "results" / "tables"
+# Honour the same override the metrics loader uses, so a test (or a scratch
+# analysis) can never write into the real results/tables/. Synthetic output
+# sitting next to real output is an integrity hazard, not a tidiness issue.
+TABLES = Path(os.environ.get("EPR_RESULTS_ROOT") or (ROOT / "results")) / "tables"
 
 # The three confirmatory comparisons carrying the Holm-Bonferroni family.
 # Pre-registered in HYPOTHESIS.md §4; do not add to this list post hoc.

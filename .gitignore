@@ -19,3 +19,8 @@ __pycache__/
 htmlcov/
 .env
 .DS_Store
+
+# Generated tables are regenerable from results/raw/ via `make reproduce`.
+results/tables/*.md
+results/tables/*.csv
+!results/tables/.gitkeep
