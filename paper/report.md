@@ -258,6 +258,30 @@ known effect and does not manufacture one under the null.
 These are the study's own weakest points, named before any result exists so that
 the list cannot be trimmed to fit a finding.
 
+**The primary instrument saturated, and C1 could not be estimated.** This is the
+single most important limitation of the study and it is not a subtle one. In the
+50-item pilot, PrOntoQA `direct_zs` — answering with no chain of thought at all —
+scored **98% (49/50)**, flat across depths 1–5 (11/11, 11/11, 11/11, 10/11, 6/6).
+`cot_fs` scored the same 98%. With no accuracy gradient there is no slope:
+β_depth ≈ 0 in every condition, so Δβ has nothing to vary against and **C1 is
+reported as *not estimable*, never as a null**. §2.5's assumption that
+`gpt-4.1-mini` is mid-tier *for this task* is simply false; 1–5 hop modus ponens
+over a fictional ontology is trivial for it.
+
+Both routes to a harder instrument were tested and both are closed: the PrOntoQA
+generator hangs at 6, 8, 10 and 12 hops under the fictional ontology, and the
+harder deduction rules (`ProofByContra`, `Composed`, `AndIntro`) require
+`--proofs-only`, which emits proofs with no question–answer pairs and so cannot
+produce the task. Relevant distractors, random premise ordering, and proof-width
+2 all generate but yield structurally identical items. The consequence is that
+**ProofWriter (C2) carries the primary inference** — a comparison pre-registered
+in §2.3, not one invented after seeing data — and that a single dataset now
+carries a claim the design intended two to share.
+
+That saturation is itself a reportable observation: PrOntoQA at depths 1–5, the
+instrument behind a widely-cited chain-of-thought analysis, no longer
+discriminates between reasoning and no-reasoning for a mid-tier 2025 model.
+
 **Contamination.** PrOntoQA's fictional ontology is generated at run time and
 cannot be memorised, which protects the *primary* result. ProofWriter (2020),
 FOLIO, and BBH are all public and plausibly in pretraining data; BBH in
