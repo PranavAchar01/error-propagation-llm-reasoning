@@ -58,6 +58,56 @@ from the realised n regardless (§7), so this cannot silently turn an
 underpowered study into an apparently null one — if 290 is too few, the report
 says so in the abstract.
 
+### Amendment 3 — 2026-08-05, after the pilot, before the full run
+
+**C1 (the primary comparison) is expected to be NOT ESTIMABLE, because ProntoQA
+is at ceiling for this model.** Recorded here in advance of the full run so the
+outcome cannot be presented later as anything other than what it is.
+
+*Evidence, from the 50-item pilot (`results/raw/pilot/`, separate phase, never
+pooled into the confirmatory analysis):*
+
+| ProntoQA condition | accuracy | by depth |
+|---|---|---|
+| `direct_zs` (no reasoning at all) | 98% (49/50) | d1 11/11 · d2 11/11 · d3 11/11 · d4 10/11 · d5 6/6 |
+| `cot_fs` | 98% (49/50) | d1 11/11 · d2 11/11 · d3 11/11 · d4 10/11 · d5 6/6 |
+| `struct_verify` | 96% (48/50) | d1 11/11 · d2 11/11 · d3 10/11 · d4 10/11 · d5 6/6 |
+
+*What triggered this amendment:* the **manipulation check failed**. Direct answer
+without any chain scores 98%, so chain-of-thought has no room to help and
+accuracy is flat across depth. β_depth ≈ 0 in every condition, so Δβ has no
+denominator to vary against. **Δβ itself was not computed before writing this** —
+the trigger is a ceiling in raw accuracy, not a look at the primary effect.
+
+*This was predicted.* §8 states that a model near ceiling on ProntoQA "gives
+β_depth ≈ 0 in every condition — no slope, no measurable propagation, no
+result." The §8 assumption that `gpt-4.1-mini` is mid-tier **for this task** is
+falsified: 1–5 hop modus ponens over a fictional ontology is trivial for it.
+
+*Why the instrument cannot simply be made harder.* Both routes were tested and
+both are closed:
+- **Deeper chains:** the ProntoQA generator hangs at 6, 8, 10, and 12 hops with
+  the fictional ontology (consistent with its own "insufficient concept names"
+  warnings). 5 hops is the practical ceiling.
+- **Harder deduction rules:** `ProofByContra`, `Composed`, and `AndIntro` all
+  require `--proofs-only`, which emits proofs without question–answer examples
+  and so cannot produce the task at all. Relevant distractors, random premise
+  ordering, and proof-width 2 generate successfully but yield structurally
+  identical items (chain length 11, 25 premises).
+
+*Consequence, and what does NOT change:*
+- **C1 will be reported as "not estimable — ceiling effect", in the abstract.**
+  It is not reported as a null result, and not quietly dropped.
+- **C2 (ProofWriter) carries the primary inference.** C2 was pre-registered in §4
+  as a confirmatory comparison; it is not a new test invented after seeing data.
+  The pilot shows ProofWriter has a real gradient (`cot_fs`: d0 8/9 → d4 5/9 →
+  d5 2/4), so the slope is estimable there.
+- The primary **metric** (Δβ, §2), the comparison set (§4), and the predictions
+  (§5) are unchanged. Only the estimability of one of the three is now known.
+- ProntoQA is still run in full and still reported. Its ceiling is a result about
+  the benchmark, not a reason to hide it: a benchmark that anchored a widely-cited
+  chain-of-thought analysis is saturated at these depths for a mid-tier 2025 model.
+
 ---
 
 ## 1. Research question
