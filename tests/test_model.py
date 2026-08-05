@@ -215,3 +215,36 @@ def test_records_are_flushed_per_item_so_a_stop_loses_nothing(tmp_path, monkeypa
     before = fake.calls
     run_condition(client, items, "direct_zs", [], seed=1, phase="test")
     assert fake.calls == before
+
+
+def test_concurrent_run_writes_every_record_exactly_once(tmp_path, monkeypatch):
+    """Parallel workers share one file handle; interleaved writes would corrupt it."""
+    import json
+
+    from epr import runner as runner_mod
+
+    monkeypatch.setattr(runner_mod, "RESULTS", tmp_path)
+    fake = _FakeSDK(per_call_in=10)
+    client = Client(model="gpt-4.1-mini-2025-04-14", _client=fake)
+    items = [_FakeItem(f"i{i}") for i in range(60)]
+
+    run_condition(client, items, "direct_zs", [], seed=1, phase="test", concurrency=8)
+
+    lines = (tmp_path / "test" / "prontoqa" / "direct_zs_seed1.jsonl").read_text().splitlines()
+    assert len(lines) == 60
+    uids = [json.loads(ln)["uid"] for ln in lines]  # every line must be valid JSON
+    assert sorted(uids) == sorted(i.uid for i in items), "no dupes, no losses"
+
+
+def test_concurrent_run_resumes_without_repaying(tmp_path, monkeypatch):
+    from epr import runner as runner_mod
+
+    monkeypatch.setattr(runner_mod, "RESULTS", tmp_path)
+    fake = _FakeSDK(per_call_in=10)
+    client = Client(model="gpt-4.1-mini-2025-04-14", _client=fake)
+    items = [_FakeItem(f"i{i}") for i in range(30)]
+
+    run_condition(client, items, "direct_zs", [], seed=1, phase="test", concurrency=8)
+    after_first = fake.calls
+    run_condition(client, items, "direct_zs", [], seed=1, phase="test", concurrency=8)
+    assert fake.calls == after_first

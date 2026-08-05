@@ -104,6 +104,10 @@ def main() -> int:
     ap.add_argument("--max-cost", type=float, default=25.0, help="USD ceiling for this phase")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--yes", action="store_true", help="skip the confirmation prompt")
+    ap.add_argument(
+        "--concurrency", type=int, default=8,
+        help="parallel in-flight requests (1 = serial). Lower it on 429s.",
+    )
     args = ap.parse_args()
 
     for c in args.conditions:
@@ -140,6 +144,7 @@ def main() -> int:
     )
     print(f"  projected tokens : {tin_total:,} in / {expected_out:,} out")
     print(f"  PROJECTED COST   : ${projected:.2f}  (ceiling ${args.max_cost:.2f})")
+    print(f"  concurrency      : {args.concurrency}")
 
     if args.dry_run:
         print("\n  dry run: no API calls made.")
@@ -179,6 +184,7 @@ def main() -> int:
                     args.phase,
                     progress=bar,
                     stop_check=over_budget,
+                    concurrency=args.concurrency,
                 )
             except BudgetExceeded as e:
                 print(f"\n\n  BUDGET CEILING HIT: {e}")

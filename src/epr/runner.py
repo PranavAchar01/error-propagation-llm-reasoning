@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import json
 import re
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
@@ -181,6 +183,7 @@ def run_condition(
     phase: str,
     progress=None,
     stop_check=None,
+    concurrency: int = 1,
 ) -> Path:
     """Run one condition, appending each record as soon as it exists.
 
@@ -191,18 +194,44 @@ def run_condition(
     """
     path = output_path(items[0].dataset, condition, seed, phase)
     done = completed_uids(path)
+    todo = [i for i in items if i.uid not in done]
+    if not todo:
+        if progress:
+            progress.update(len(items))
+        return path
+
+    write_lock = threading.Lock()
+    halted = threading.Event()
+
     with path.open("a") as fh:
-        for item in items:
-            if item.uid in done:
-                continue
+
+        def work(item: Item) -> None:
+            # Checked inside the worker so the ceiling is enforced against spend
+            # that has actually landed. In flight calls can overshoot by at most
+            # `concurrency` items — bounded, and cheaper than serialising.
+            if halted.is_set():
+                return
             if stop_check is not None and stop_check():
-                raise BudgetExceeded(
-                    f"stopped in {items[0].dataset}/{condition} seed={seed}; "
-                    f"spend so far ${client.usage.cost(client.model):.2f}"
-                )
+                halted.set()
+                return
             rec = run_item(client, item, condition, exemplars, seed)
-            fh.write(rec.to_json() + "\n")
-            fh.flush()
+            with write_lock:
+                fh.write(rec.to_json() + "\n")
+                fh.flush()
             if progress:
                 progress.update(1)
+
+        if concurrency <= 1:
+            for item in todo:
+                work(item)
+        else:
+            with ThreadPoolExecutor(max_workers=concurrency) as pool:
+                for fut in as_completed([pool.submit(work, i) for i in todo]):
+                    fut.result()  # surface worker exceptions rather than swallow them
+
+    if halted.is_set():
+        raise BudgetExceeded(
+            f"stopped in {items[0].dataset}/{condition} seed={seed}; "
+            f"spend so far ${client.usage.cost(client.model):.2f}"
+        )
     return path

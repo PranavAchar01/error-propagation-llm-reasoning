@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import os
 import random
+import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -115,18 +116,32 @@ def resolve_credentials(provider: str) -> dict:
 
 @dataclass
 class Usage:
+    """Token and cost accounting. Thread-safe: the runner calls this from a pool,
+    and an unsynchronised += would undercount spend — which, for a hard budget
+    ceiling, means overspending."""
+
     input_tokens: int = 0
     output_tokens: int = 0
     reasoning_tokens: int = 0
     calls: int = 0
     retries: int = 0
     failures: int = 0
+    _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     def add(self, i: int, o: int, r: int = 0) -> None:
-        self.input_tokens += i
-        self.output_tokens += o
-        self.reasoning_tokens += r
-        self.calls += 1
+        with self._lock:
+            self.input_tokens += i
+            self.output_tokens += o
+            self.reasoning_tokens += r
+            self.calls += 1
+
+    def note_retry(self) -> None:
+        with self._lock:
+            self.retries += 1
+
+    def note_failure(self) -> None:
+        with self._lock:
+            self.failures += 1
 
     def cost(self, model: str) -> float:
         cin, cout = PRICING.get(model, (0.0, 0.0))
@@ -248,10 +263,10 @@ class Client:
                 last = f"{type(e).__name__}: {e}"
                 if not any(k in last.lower() for k in RETRYABLE) or attempt == self.max_retries - 1:
                     break
-                self.usage.retries += 1
+                self.usage.note_retry()
                 time.sleep(delay + random.random())
                 delay = min(delay * 2, 60)
-        self.usage.failures += 1
+        self.usage.note_failure()
         return Response(text="", input_tokens=0, output_tokens=0, error=last)
 
 
