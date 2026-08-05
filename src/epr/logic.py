@@ -53,13 +53,26 @@ class Rule:
 
 @dataclass
 class Theory:
-    """The premise set a derivation is checked against."""
+    """The premise set a derivation is checked against.
+
+    `texts` keeps each premise's original surface sentence against its id, so
+    the numbered block shown to the model is generated from the same structure
+    the verifier checks against. Rendering the prompt from anywhere else would
+    let the two drift, and a drifted id is indistinguishable from a model error.
+    """
 
     facts: dict[str, Atom] = field(default_factory=dict)
     rules: dict[str, Rule] = field(default_factory=dict)
+    texts: dict[str, str] = field(default_factory=dict)
 
     def has(self, pid: str) -> bool:
         return pid in self.facts or pid in self.rules
+
+    def premise_block(self) -> str:
+        """The numbered premise list. Identical across all seven conditions."""
+        lines = [f"{pid}: {self.texts.get(pid, atom.text())}" for pid, atom in self.facts.items()]
+        lines += [f"{rid}: {self.texts.get(rid, rule.text())}" for rid, rule in self.rules.items()]
+        return "\n".join(lines)
 
 
 Binding = dict[str, str]

@@ -1,0 +1,3 @@
+dataset,condition,n,accuracy,ci_lo,ci_hi,first_attempt_accuracy,beta_depth,mean_first_error_position,n_with_error,recovery_rate,n_steps_total,verifier_rejection_rate,propagation_rate,n_with_steps,parse_failure_rate,n_api_error,n_unparsed_answer,model
+prontoqa,cot_fs,600,0.565,0.5250418771398944,0.6041310715274382,0.565,-0.8609514314886426,2.0,261,0.0,1800,0.145,0.145,600,0.0,0,0,synthetic-model-v0
+prontoqa,struct_verify,600,0.89,0.8624391849597586,0.9125985070442373,0.89,-0.3083851799221858,3.0,66,0.0,1800,0.03666666666666667,0.0,600,0.0,0,0,synthetic-model-v0

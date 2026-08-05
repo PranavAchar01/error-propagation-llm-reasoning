@@ -37,8 +37,8 @@ class UnsupportedTheory(ParseError):
 # --------------------------------------------------------------------------
 
 _SENT_SPLIT = re.compile(r"(?<=\.)\s+")
-_UNIVERSAL = re.compile(r"^(?:Every|Each)\s+(\w+)\s+is\s+(not\s+)?(?:an?\s+)?(\w+)\.?$", re.I)
-_PLURAL_RULE = re.compile(r"^(\w+)\s+are\s+(not\s+)?(\w+)\.?$", re.I)
+_UNIVERSAL = re.compile(r"^(?:Every|Each)\s+(\w+)\s+is\s+(not\s+)?(?:an?\s+)?(\w+)\.?$", re.IGNORECASE)
+_PLURAL_RULE = re.compile(r"^(\w+)\s+are\s+(not\s+)?(\w+)\.?$", re.IGNORECASE)
 _GROUND = re.compile(r"^([A-Z]\w*)\s+is\s+(not\s+)?(?:an?\s+)?(\w+)\.?$")
 
 
@@ -123,9 +123,11 @@ def build_prontoqa_theory(question: str) -> tuple[Theory, Vocab]:
         if isinstance(parsed, Atom):
             nf += 1
             theory.facts[f"fact{nf}"] = parsed
+            theory.texts[f"fact{nf}"] = s
         else:
             nr += 1
             theory.rules[f"rule{nr}"] = parsed
+            theory.texts[f"rule{nr}"] = s
     return theory, vocab
 
 
@@ -201,8 +203,10 @@ def build_proofwriter_theory(record: dict) -> Theory:
     theory = Theory()
     for tid, t in record.get("triples", {}).items():
         theory.facts[tid] = parse_pw_atom(t["representation"])
+        theory.texts[tid] = t["text"]
     for rid, r in record.get("rules", {}).items():
         theory.rules[rid] = parse_pw_rule(r["representation"])
+        theory.texts[rid] = r["text"]
     return theory
 
 
@@ -312,9 +316,9 @@ def proofwriter_gold_steps(question: dict, theory: Theory | None = None) -> list
 # [premises: fact1, fact2 | rule: rule3 | therefore: Stella is not kind]
 _TRIPLE = re.compile(
     r"\[\s*premises?\s*:\s*([^|\]]*)\|\s*rule\s*:\s*([^|\]]*)\|\s*therefore\s*:\s*([^\]]*)\]",
-    re.I,
+    re.IGNORECASE,
 )
-_ID = re.compile(r"\b((?:fact|rule|triple|s)\d+)\b", re.I)
+_ID = re.compile(r"\b((?:fact|rule|triple|s)\d+)\b", re.IGNORECASE)
 
 
 def parse_structured_steps(

@@ -64,7 +64,7 @@ def test_prontoqa_gold_chain_length_tracks_hop_count():
 
 
 def test_prontoqa_parser_is_strict_about_unknown_sentences():
-    theory, vocab = build_prontoqa_theory("Every zumpus is a dumpus. Stella is a zumpus.")
+    _, vocab = build_prontoqa_theory("Every zumpus is a dumpus. Stella is a zumpus.")
     from epr.parsers import parse_prontoqa_sentence
 
     with pytest.raises(ParseError):
