@@ -35,7 +35,10 @@ def extract_answer(text: str, answer_space: tuple[str, ...]) -> str | None:
     for cand in answer_space:
         if raw == cand.lower():
             return cand
-    # Multiple choice (BBH) answers arrive as a bare letter.
+    # Multiple choice (BBH): the gold target is written "(A)" but a model asked
+    # for a letter usually writes "A". Return it verbatim; canonicalisation for
+    # comparison happens in metrics.normalise_answer, which applies to records
+    # already on disk as well as new ones.
     if not answer_space and matches[-1].strip():
         return matches[-1].strip()
     for cand in answer_space:

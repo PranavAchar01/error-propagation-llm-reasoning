@@ -45,6 +45,33 @@ def final_attempt(rec: dict) -> dict:
     return rec["revised"] if rec.get("revised") else rec["first"]
 
 
+def normalise_answer(value: str | None) -> str | None:
+    """Canonical form for answer comparison.
+
+    Multiple-choice targets in BIG-Bench Hard are written `(A)`, while a model
+    asked for "the letter of the correct option" usually writes `A`. Comparing
+    those as raw strings scores every such item wrong: in this run it produced
+    0.0% for `direct_zs` and `cot_zs` on BBH, which is a scoring artefact and
+    not a model result. Stripping brackets and case on both sides fixes it.
+    """
+    if value is None:
+        return None
+    return value.strip().strip("()[].,: ").lower() or None
+
+
+def attempt_correct(rec: dict, attempt: dict) -> bool:
+    """Recompute correctness from the stored answer, not the stored verdict.
+
+    Scoring lives in the analysis layer so a scoring fix re-derives every table
+    from `results/raw/` with no new API calls — the raw response text is the
+    only ground truth, and it is never rewritten.
+    """
+    pred = normalise_answer(attempt.get("answer"))
+    if pred is None:
+        return False
+    return pred == normalise_answer(rec.get("gold_answer"))
+
+
 @dataclass
 class ConditionSummary:
     dataset: str
@@ -142,9 +169,9 @@ def summarise(records: list[dict]) -> dict[tuple[str, str], ConditionSummary]:
             continue
 
         s.n += 1
-        correct = bool(att.get("correct"))
+        correct = attempt_correct(rec, att)
         s.n_correct += correct
-        s.n_first_correct += bool(first.get("correct"))
+        s.n_first_correct += attempt_correct(rec, first)
         if att.get("answer") is None:
             s.n_unparsed_answer += 1
 
@@ -202,8 +229,8 @@ def paired_vectors(
         if ra.get("depth") is None:
             continue
         depth.append(int(ra["depth"]))
-        ca.append(int(bool(final_attempt(ra).get("correct"))))
-        cb.append(int(bool(final_attempt(rb).get("correct"))))
+        ca.append(int(attempt_correct(ra, final_attempt(ra))))
+        cb.append(int(attempt_correct(rb, final_attempt(rb))))
         uids.append(k)
     return np.array(depth), np.array(ca), np.array(cb), uids
 

@@ -187,3 +187,48 @@ def test_analyze_script_runs_offline_and_writes_tables(synthetic_phase, monkeypa
     assert proc.returncode == 0, f"analyze.py failed:\n{proc.stdout}\n{proc.stderr}"
     assert "Per-condition summary" in proc.stdout
     assert "synthetic-model-v0" in proc.stdout
+
+
+def test_multiple_choice_answers_score_regardless_of_bracket_style(tmp_path, monkeypatch):
+    """BBH gold targets are "(A)"; models asked for a letter write "A".
+
+    Comparing those as raw strings scored every zero-shot BBH item wrong and
+    produced a 0.0% "result". Scoring lives in the analysis layer precisely so
+    this re-derives from raw records with no new API calls.
+    """
+    raw = tmp_path / "raw" / "mc" / "bbh"
+    raw.mkdir(parents=True)
+    recs = []
+    for i, (pred, gold) in enumerate([("A", "(A)"), ("(A)", "(A)"), ("a", "(A)"), ("B", "(A)")]):
+        r = _record(f"m{i}", "bbh", "direct_zs", 1, None, True)
+        r["supports_step_metrics"] = False
+        r["gold_answer"] = gold
+        r["first"]["answer"] = pred
+        r["first"]["correct"] = False  # the stale on-disk verdict, deliberately wrong
+        r["first"]["report"] = None
+        recs.append(r)
+    (raw / "direct_zs_seed1.jsonl").write_text("\n".join(json.dumps(r) for r in recs) + "\n")
+    monkeypatch.setattr(metrics_mod, "RESULTS", tmp_path)
+
+    s = summarise(load_records("mc"))[("bbh", "direct_zs")]
+    assert s.n == 4
+    assert s.n_correct == 3, "A, (A) and a must all match gold (A); B must not"
+
+
+def test_true_false_scoring_is_unaffected_by_the_normaliser(tmp_path, monkeypatch):
+    raw = tmp_path / "raw" / "tf" / "prontoqa"
+    raw.mkdir(parents=True)
+    recs = []
+    for i, (pred, gold, want) in enumerate(
+        [("True", "True", True), ("False", "True", False), (None, "True", False)]
+    ):
+        r = _record(f"t{i}", "prontoqa", "cot_fs", 1, 1, True)
+        r["gold_answer"] = gold
+        r["first"]["answer"] = pred
+        recs.append((r, want))
+    (raw / "cot_fs_seed1.jsonl").write_text(
+        "\n".join(json.dumps(r) for r, _ in recs) + "\n"
+    )
+    monkeypatch.setattr(metrics_mod, "RESULTS", tmp_path)
+    s = summarise(load_records("tf"))[("prontoqa", "cot_fs")]
+    assert s.n_correct == sum(1 for _, w in recs if w) == 1
